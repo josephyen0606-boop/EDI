@@ -5,277 +5,227 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BPMED Digital Twin Simulator</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #2c3e50; }
-        .kpi-board { display: flex; justify-content: space-between; margin-bottom: 20px; }
-        .kpi-card { flex: 1; background: #ecf0f1; margin: 0 10px; padding: 15px; border-radius: 8px; text-align: center; border-bottom: 4px solid #3498db; }
-        .kpi-value { font-size: 24px; font-weight: bold; color: #2980b9; }
-        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .control-group { display: flex; flex-direction: column; }
-        label { font-weight: bold; margin-bottom: 5px; font-size: 14px; }
-        input[type="range"] { width: 100%; }
-        canvas { display: block; margin: 0 auto; background: #ecf0f1; border-radius: 8px; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
-        .legend { text-align: center; margin-top: 10px; font-size: 14px; }
-        .status { margin-top: 15px; padding: 10px; background: #ffeaa7; border-left: 5px solid #fdcb6e; font-weight: bold; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1e1e1e;
+            color: #eeeeee;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-top: 0; font-size: 24px; color: #4DA8DA; }
+        .dashboard {
+            display: flex;
+            width: 100%;
+            max-width: 1000px;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .controls {
+            flex: 1;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .controls label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .controls input[type="range"] {
+            width: 100%;
+            margin-bottom: 15px;
+        }
+        .kpi-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .kpi-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 5px solid #4DA8DA;
+        }
+        .kpi-card h3 { margin: 0 0 5px 0; font-size: 14px; color: #aaa; }
+        .kpi-card .value { font-size: 24px; font-weight: bold; }
+        
+        .canvas-container {
+            position: relative;
+            background: #111;
+            border: 2px solid #555;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        canvas { display: block; }
+        .overlay-text {
+            position: absolute;
+            color: rgba(255,255,255,0.3);
+            font-size: 20px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        .status-box {
+            margin-top: 15px;
+            width: 100%;
+            max-width: 1000px;
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            color: #ffcc00;
+            font-family: monospace;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>BPMED Carbon Capture Digital Twin</h1>
-    
-    <div class="kpi-board">
-        <div class="kpi-card">
-            <div>Carbon Capture Rate</div>
-            <div class="kpi-value" id="kpiCapture">0 %</div>
-        </div>
-        <div class="kpi-card" style="border-bottom-color: #e74c3c;">
-            <div>H+ Crossover Rate</div>
-            <div class="kpi-value" id="kpiCrossover" style="color:#c0392b;">0 %</div>
-        </div>
-        <div class="kpi-card" style="border-bottom-color: #2ecc71;">
-            <div>Neutralization Loss</div>
-            <div class="kpi-value" id="kpiLoss" style="color:#27ae60;">0</div>
-        </div>
-    </div>
+    <h1>BPMED Carbon Capture - Digital Twin</h1>
 
-    <div class="controls">
-        <div class="control-group">
-            <label>Applied Voltage (Current): <span id="valVoltage">50</span>%</label>
-            <input type="range" id="slVoltage" min="0" max="100" value="50">
-        </div>
-        <div class="control-group">
-            <label>CO2 Gas Flow: <span id="valGas">50</span>%</label>
-            <input type="range" id="slGas" min="0" max="100" value="50">
-        </div>
-        <div class="control-group">
-            <label>Capture Upflow Rate: <span id="valCapFlow">50</span>%</label>
-            <input type="range" id="slCapFlow" min="0" max="100" value="50">
-        </div>
-        <div class="control-group">
-            <label>Release Upflow Rate: <span id="valRelFlow">80</span>%</label>
+    <div class="dashboard">
+        <div class="controls">
+            <label>Applied Voltage <span><span id="valVolt">50</span>%</span></label>
+            <input type="range" id="slVolt" min="0" max="100" value="50">
+
+            <label>Release Upflow Rate <span><span id="valRelFlow">80</span>%</span></label>
             <input type="range" id="slRelFlow" min="0" max="100" value="80">
-        </div>
-        <div class="control-group" style="grid-column: span 2;">
-            <label>NaCl Concentration (Release): <span id="valNaCl">3.0</span>%</label>
+
+            <label>Capture Upflow Rate <span><span id="valCapFlow">40</span>%</span></label>
+            <input type="range" id="slCapFlow" min="0" max="100" value="40">
+
+            <label>CO2 Gas Flow <span><span id="valGas">60</span>%</span></label>
+            <input type="range" id="slGas" min="0" max="100" value="60">
+
+            <label>NaCl Concentration <span><span id="valNaCl">3.0</span>%</span></label>
             <input type="range" id="slNaCl" min="0" max="5" step="0.5" value="3.0">
         </div>
+
+        <div class="kpi-panel">
+            <div class="kpi-card" style="border-color: #28a745;">
+                <h3>Carbon Capture Rate</h3>
+                <div class="value" id="kpiCapture" style="color: #28a745;">0</div>
+            </div>
+            <div class="kpi-card" style="border-color: #dc3545;">
+                <h3>H+ Crossover Count</h3>
+                <div class="value" id="kpiCross" style="color: #dc3545;">0</div>
+            </div>
+            <div class="kpi-card" style="border-color: #ffc107;">
+                <h3>OH- Neutralization Loss</h3>
+                <div class="value" id="kpiNeut" style="color: #ffc107;">0</div>
+            </div>
+        </div>
     </div>
 
-    <canvas id="simCanvas" width="800" height="400"></canvas>
-    
-    <div class="legend">
-        🔵 OH- | 🔴 H+ | 🟢 HCO3- | ⚪ CO2 Bubble | 🟡 Na+
+    <div class="canvas-container">
+        <canvas id="simCanvas" width="900" height="400"></canvas>
+        <div class="overlay-text" style="top: 10px; left: 10px;">LEFT BP</div>
+        <div class="overlay-text" style="top: 10px; left: 200px;">CAPTURE CHAMBER</div>
+        <div class="overlay-text" style="top: 10px; left: 420px;">CEM</div>
+        <div class="overlay-text" style="top: 10px; left: 600px;">RELEASE CHAMBER</div>
+        <div class="overlay-text" style="top: 10px; right: 10px;">RIGHT BP</div>
     </div>
-    
-    <div class="status" id="statusText">System Initialized. Adjust parameters to observe physics.</div>
-</div>
 
-<script>
-    const canvas = document.getElementById('simCanvas');
-    const ctx = canvas.getContext('2d');
+    <div class="status-box" id="statusMsg">System Initializing...</div>
 
-    // UI Elements
-    const slVoltage = document.getElementById('slVoltage');
-    const slGas = document.getElementById('slGas');
-    const slCapFlow = document.getElementById('slCapFlow');
-    const slRelFlow = document.getElementById('slRelFlow');
-    const slNaCl = document.getElementById('slNaCl');
-    
-    let particles = [];
-    let captureCount = 0;
-    let crossoverCount = 0;
-    let lossCount = 0;
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const slVolt = document.getElementById('slVolt');
+        const slRelFlow = document.getElementById('slRelFlow');
+        const slCapFlow = document.getElementById('slCapFlow');
+        const slGas = document.getElementById('slGas');
+        const slNaCl = document.getElementById('slNaCl');
+        
+        // KPIs
+        let capturedCount = 0;
+        let crossoverCount = 0;
+        let neutralizedCount = 0;
 
-    // Boundaries
-    const LEFT_BP = 50;
-    const CEM = 400;
-    const RIGHT_BP = 750;
+        // Particle System
+        let particles = [];
+        const CHAMBER_DIVIDER = 450; // Middle (CEM)
 
-    class Particle {
-        constructor(type, x, y) {
-            this.type = type;
-            this.x = x;
-            this.y = y;
-            this.vx = 0;
-            this.vy = 0;
-            this.active = true;
-            this.color = this.getColor();
-            this.radius = type === 'CO2' ? 6 : 4;
-        }
-        getColor() {
-            if(this.type === 'OH-') return '#3498db';
-            if(this.type === 'H+') return '#e74c3c';
-            if(this.type === 'HCO3-') return '#2ecc71';
-            if(this.type === 'CO2') return '#ffffff';
-            if(this.type === 'Na+') return '#f1c40f';
-            return '#000';
-        }
-        update(v, gas, cFlow, rFlow, nacl) {
-            // Apply Upflow based on chamber
-            if (this.x < CEM) {
-                this.vy = -(cFlow / 100) * 3; 
-                if(this.type === 'CO2') this.vy -= 1.5; // Buoyancy
-            } else {
-                this.vy = -(rFlow / 100) * 3;
+        // Colors
+        const colors = {
+            'OH': '#00ffff',  // Cyan
+            'H': '#ff3333',   // Red
+            'CO2': '#aaaaaa', // Gray
+            'HCO3': '#00ff00',// Green
+            'Na': '#ffff00',  // Yellow
+            'Cl': '#ff00ff'   // Magenta
+        };
+
+        class Particle {
+            constructor(type, x, y, vx, vy) {
+                this.type = type;
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.markedForDeletion = false;
             }
 
-            // Horizontal Forces (Electric Field)
-            if(this.type === 'OH-') this.vx = (v/100) * 2;
-            if(this.type === 'H+') this.vx = -(v/100) * 2;
-            if(this.type === 'Na+') this.vx = -(v/100) * 1.5;
-            
-            // Random diffusion
-            this.vx += (Math.random() - 0.5) * 0.5;
-
-            // CEM Barrier Logic
-            if(this.type === 'OH-' || this.type === 'HCO3-') {
-                if(this.x + this.vx > CEM - 5) this.vx = -0.5; // Bounce
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.type === 'CO2' ? 6 : 4, 0, Math.PI * 2);
+                ctx.fillStyle = colors[this.type];
+                ctx.fill();
+                ctx.closePath();
+                
+                // Label
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.fillText(this.type, this.x + 6, this.y + 3);
             }
-            if(this.type === 'H+' || this.type === 'Na+') {
-                // Crossover probability logic based on Flow & NaCl
-                if(this.x > CEM && this.x + this.vx <= CEM) {
-                    let defense = (rFlow/100) + (nacl/5);
-                    if(Math.random() < defense) {
-                        this.vx = 0.5; // Blocked/Swept up
-                    } else {
-                        if(this.type === 'H+') crossoverCount++;
+
+            update(vVolt, vCapF, vRelF) {
+                // Electric Field Force (Horizontal)
+                let eForce = (vVolt / 100) * 1.5;
+                if (this.type === 'H' || this.type === 'Na') this.vx -= eForce * 0.1; // Cations move left
+                if (this.type === 'OH' || this.type === 'Cl' || this.type === 'HCO3') this.vx += eForce * 0.1; // Anions move right
+
+                // Fluid Dynamics (Vertical)
+                let currentChamber = this.x < CHAMBER_DIVIDER ? 0 : 1;
+                let upflow = currentChamber === 0 ? (vCapF / 100) * 3 : (vRelF / 100) * 3;
+                
+                // Buoyancy Rule: CO2 bubbles always rise faster
+                let buoyancy = this.type === 'CO2' ? 1.5 : 0;
+                
+                this.vy = -upflow - buoyancy; // Negative is UP
+
+                // Apply velocity with friction
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.9; // Horizontal drag
+
+                // Boundary Logic
+                // Left BP
+                if (this.x < 10) { this.x = 10; this.vx *= -1; }
+                // Right BP
+                if (this.x > canvas.width - 10) { this.x = canvas.width - 10; this.vx *= -1; }
+                
+                // CEM (Middle) Rules
+                if (currentChamber === 0 && this.x > CHAMBER_DIVIDER - 5) {
+                    // Block Anions from Capture
+                    if (this.type === 'OH' || this.type === 'HCO3') {
+                        this.x = CHAMBER_DIVIDER - 5;
+                        this.vx *= -1;
                     }
                 }
-            }
-
-            this.x += this.vx;
-            this.y += this.vy;
-
-            // Out of bounds
-            if(this.y < 0 || this.x < LEFT_BP || this.x > RIGHT_BP) this.active = false;
-        }
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fillStyle = this.color;
-            ctx.fill();
-            ctx.strokeStyle = '#333';
-            ctx.stroke();
-        }
-    }
-
-    function spawnParticles(v, gas, nacl) {
-        if(Math.random() < (v/100)) {
-            particles.push(new Particle('OH-', LEFT_BP + 5, Math.random() * 400));
-            particles.push(new Particle('H+', RIGHT_BP - 5, Math.random() * 400));
-        }
-        if(Math.random() < (gas/100)) {
-            particles.push(new Particle('CO2', LEFT_BP + Math.random()*300 + 20, 400));
-        }
-        if(Math.random() < (nacl/5)) {
-            particles.push(new Particle('Na+', CEM + Math.random()*300 + 20, 400));
-        }
-    }
-
-    function handleCollisions() {
-        for(let i=0; i<particles.length; i++) {
-            let p1 = particles[i];
-            if(!p1.active) continue;
-
-            for(let j=i+1; j<particles.length; j++) {
-                let p2 = particles[j];
-                if(!p2.active) continue;
-
-                let dx = p1.x - p2.x;
-                let dy = p1.y - p2.y;
-                let dist = Math.sqrt(dx*dx + dy*dy);
-
-                if(dist < 10) {
-                    // CO2 + OH- -> HCO3-
-                    if((p1.type === 'CO2' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'CO2')) {
-                        p1.type = 'HCO3-';
-                        p1.color = p1.getColor();
-                        p2.active = false;
-                        captureCount++;
+                if (currentChamber === 1 && this.x < CHAMBER_DIVIDER + 5) {
+                    // Block Cl- from Release
+                    if (this.type === 'Cl') {
+                        this.x = CHAMBER_DIVIDER + 5;
+                        this.vx *= -1;
                     }
-                    // Neutralization: H+ + OH- -> H2O (disappear)
-                    if((p1.type === 'H+' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'H+')) {
-                        p1.active = false;
-                        p2.active = false;
-                        lossCount++;
-                    }
-                }
-            }
-        }
-    }
-
-    function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Draw Membranes
-        ctx.fillStyle = '#bdc3c7';
-        ctx.fillRect(LEFT_BP-10, 0, 10, 400); // Left BP
-        ctx.fillRect(RIGHT_BP, 0, 10, 400);   // Right BP
-        ctx.fillStyle = '#95a5a6';
-        ctx.fillRect(CEM-2, 0, 4, 400);       // CEM
-
-        // Labels
-        ctx.fillStyle = '#7f8c8d';
-        ctx.font = "14px Arial";
-        ctx.fillText("BP", LEFT_BP - 30, 200);
-        ctx.fillText("CEM", CEM - 15, 20);
-        ctx.fillText("BP", RIGHT_BP + 15, 200);
-        ctx.fillText("Capture Chamber (Upflow)", 130, 380);
-        ctx.fillText("Release Chamber (Upflow)", 480, 380);
-
-        let v = parseInt(slVoltage.value);
-        let gas = parseInt(slGas.value);
-        let cFlow = parseInt(slCapFlow.value);
-        let rFlow = parseInt(slRelFlow.value);
-        let nacl = parseFloat(slNaCl.value);
-
-        // Update UI Text
-        document.getElementById('valVoltage').innerText = v;
-        document.getElementById('valGas').innerText = gas;
-        document.getElementById('valCapFlow').innerText = cFlow;
-        document.getElementById('valRelFlow').innerText = rFlow;
-        document.getElementById('valNaCl').innerText = nacl;
-
-        spawnParticles(v, gas, nacl);
-        handleCollisions();
-
-        particles = particles.filter(p => p.active);
-        particles.forEach(p => {
-            p.update(v, gas, cFlow, rFlow, nacl);
-            p.draw();
-        });
-
-        // Update KPIs
-        document.getElementById('kpiCapture').innerText = Math.min(100, Math.floor((captureCount / (gas+1)) * 10)) + " %";
-        document.getElementById('kpiCrossover').innerText = Math.min(100, Math.floor((crossoverCount / (v+1)) * 5)) + " %";
-        document.getElementById('kpiLoss').innerText = lossCount;
-
-        // Dynamic Status
-        let status = document.getElementById('statusText');
-        if(crossoverCount > 50) {
-            status.innerText = "Warning: High H+ crossover is neutralizing the generated alkalinity!";
-            status.style.backgroundColor = "#ff7675";
-            status.style.borderLeftColor = "#d63031";
-        } else if (nacl > 2 && rFlow > 60) {
-            status.innerText = "Optimal: Upflow and NaCl successfully buffering H+ crossover.";
-            status.style.backgroundColor = "#55efc4";
-            status.style.borderLeftColor = "#00b894";
-        } else {
-            status.innerText = "System running. Monitoring ion flux...";
-            status.style.backgroundColor = "#ffeaa7";
-            status.style.borderLeftColor = "#fdcb6e";
-        }
-
-        // Reset counters slowly for dynamic feel
-        if(Math.random() < 0.05) { captureCount *= 0.9; crossoverCount *= 0.9; }
-
-        requestAnimationFrame(animate);
-    }
-
-    animate();
-</script>
-
-</body>
-</html>
+                    // Crossover for Cations (H+, Na+)
+                    if ((this.type === 'H' || this.type === 'Na') && this.vx < 0) {
+                        this.x -=

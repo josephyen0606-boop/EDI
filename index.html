@@ -31,7 +31,7 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            width: 250px;
+            width: 280px;
             background: #fafafa;
             padding: 15px;
             border-radius: 8px;
@@ -73,10 +73,12 @@
         }
         .legend {
             display: flex;
+            flex-wrap: wrap;
             gap: 15px;
             margin-top: 15px;
             font-size: 13px;
             justify-content: center;
+            max-width: 600px;
         }
         .legend-item {
             display: flex;
@@ -111,7 +113,7 @@
                 <input type="range" id="slCO2" min="0" max="100" value="50">
             </div>
             <div class="control-group">
-                <label>NaCl Concentration <span class="val-display" id="valNaCl">3.0%</span></label>
+                <label>Electrolyte Conc. (NH4:K = 1:6) <span class="val-display" id="valNaCl">3.0%</span></label>
                 <input type="range" id="slNaCl" min="0" max="5" step="0.5" value="3.0">
             </div>
         </div>
@@ -123,7 +125,8 @@
                 <div class="legend-item"><div class="dot" style="background:#dc3545;"></div> H+</div>
                 <div class="legend-item"><div class="dot" style="background:#6c757d; border:1px solid #333;"></div> CO2</div>
                 <div class="legend-item"><div class="dot" style="background:#28a745;"></div> HCO3-</div>
-                <div class="legend-item"><div class="dot" style="background:#6f42c1;"></div> Na+</div>
+                <div class="legend-item"><div class="dot" style="background:#17a2b8;"></div> NH4+</div>
+                <div class="legend-item"><div class="dot" style="background:#6f42c1;"></div> K+</div>
                 <div class="legend-item"><div class="dot" style="background:#fd7e14;"></div> Cl-</div>
             </div>
         </div>
@@ -183,11 +186,12 @@
                 // Horizontal Electric Field Drift (Voltage driven)
                 let eForce = (volt / 100) * 2;
                 
-                if (this.type === 'OH') this.vx = eForce * 0.5;
-                if (this.type === 'H') this.vx = -eForce * 0.8; 
-                if (this.type === 'Na') this.vx = -eForce * 0.6;
-                if (this.type === 'Cl') this.vx = eForce * 0.4;
-                if (this.type === 'HCO3') this.vx = eForce * 0.3;
+                if (this.type === 'OH-') this.vx = eForce * 0.5;
+                if (this.type === 'H+') this.vx = -eForce * 0.8; 
+                if (this.type === 'K+') this.vx = -eForce * 0.65; // High mobility
+                if (this.type === 'NH4+') this.vx = -eForce * 0.55; // Slightly lower mobility
+                if (this.type === 'Cl-') this.vx = eForce * 0.4;
+                if (this.type === 'HCO3-') this.vx = eForce * 0.3;
                 if (this.type === 'CO2') {
                     // Random wiggle for gas
                     this.vx = (Math.random() - 0.5) * 1; 
@@ -202,15 +206,12 @@
 
                 // Middle Membrane (CEM) Logic
                 if (this.x > CEM_X - 5 && this.x < CEM_X + 5) {
-                    if (this.type === 'HCO3' || this.type === 'Cl' || this.type === 'OH') {
+                    if (this.type === 'HCO3-' || this.type === 'Cl-' || this.type === 'OH-') {
                         // Anions blocked by CEM
                         if (this.vx > 0) this.x = CEM_X - 6;
                         if (this.vx < 0) this.x = CEM_X + 6;
                     }
-                    // H+ and Na+ can cross, but crossing probability depends on flow & NaCl competition
-                    if (this.type === 'H' || this.type === 'Na') {
-                        // Let them cross smoothly
-                    }
+                    // Cations (H+, K+, NH4+) cross smoothly based on electric field and flow
                 }
 
                 // Left & Right BP boundaries (Absolute barriers)
@@ -228,13 +229,19 @@
                     ctx.stroke();
                 } else {
                     ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
-                    if (this.type === 'OH') ctx.fillStyle = '#007bff';
-                    if (this.type === 'H') ctx.fillStyle = '#dc3545';
-                    if (this.type === 'HCO3') ctx.fillStyle = '#28a745';
-                    if (this.type === 'Na') ctx.fillStyle = '#6f42c1';
-                    if (this.type === 'Cl') ctx.fillStyle = '#fd7e14';
+                    if (this.type === 'OH-') ctx.fillStyle = '#007bff';
+                    if (this.type === 'H+') ctx.fillStyle = '#dc3545';
+                    if (this.type === 'HCO3-') ctx.fillStyle = '#28a745';
+                    if (this.type === 'NH4+') ctx.fillStyle = '#17a2b8';
+                    if (this.type === 'K+') ctx.fillStyle = '#6f42c1';
+                    if (this.type === 'Cl-') ctx.fillStyle = '#fd7e14';
                     ctx.fill();
                 }
+
+                // Draw Chemical Label
+                ctx.fillStyle = '#444';
+                ctx.font = '10px Arial';
+                ctx.fillText(this.type, this.x + 6, this.y + 4);
             }
         }
 
@@ -245,10 +252,10 @@
 
             // Water Splitting (Whole surface)
             if (Math.random() < (volt / 100) * 0.3) {
-                particles.push(new Particle('OH', LEFT_BP_X + 20, Math.random() * canvas.height));
+                particles.push(new Particle('OH-', LEFT_BP_X + 20, Math.random() * canvas.height));
             }
             if (Math.random() < (volt / 100) * 0.3) {
-                particles.push(new Particle('H', RIGHT_BP_X - 20, Math.random() * canvas.height));
+                particles.push(new Particle('H+', RIGHT_BP_X - 20, Math.random() * canvas.height));
             }
 
             // CO2 Upflow (Bottom Left)
@@ -256,10 +263,13 @@
                 particles.push(new Particle('CO2', LEFT_BP_X + 50 + Math.random() * 150, canvas.height + 10));
             }
 
-            // NaCl Upflow (Bottom Right)
+            // Electrolyte Upflow (Bottom Right)
             if (Math.random() < (nacl / 5) * 0.5) {
-                particles.push(new Particle('Na', CEM_X + 20 + Math.random() * 200, canvas.height + 10));
-                particles.push(new Particle('Cl', CEM_X + 20 + Math.random() * 200, canvas.height + 10));
+                // Determine cation based on 1:6 ratio (NH4+ : K+)
+                // Probability of NH4+ is 1/7, K+ is 6/7
+                let cationType = (Math.random() < (1/7)) ? 'NH4+' : 'K+';
+                particles.push(new Particle(cationType, CEM_X + 20 + Math.random() * 200, canvas.height + 10));
+                particles.push(new Particle('Cl-', CEM_X + 20 + Math.random() * 200, canvas.height + 10));
             }
         }
 
@@ -269,7 +279,7 @@
                 let p1 = particles[i];
 
                 // Check Crossover H+
-                if (p1.type === 'H' && p1.x < CEM_X) {
+                if (p1.type === 'H+' && p1.x < CEM_X) {
                     hCrossoverCount++;
                 }
 
@@ -281,15 +291,15 @@
                     let dy = p1.y - p2.y;
                     let dist = Math.sqrt(dx*dx + dy*dy);
 
-                    // Capture Reaction: CO2 + OH- -> HCO3-
                     if (dist < 15) {
-                        if ((p1.type === 'CO2' && p2.type === 'OH') || (p1.type === 'OH' && p2.type === 'CO2')) {
+                        // Capture Reaction: CO2 + OH- -> HCO3-
+                        if ((p1.type === 'CO2' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'CO2')) {
                             p1.markedForDeletion = true;
                             p2.markedForDeletion = true;
-                            particles.push(new Particle('HCO3', (p1.x+p2.x)/2, (p1.y+p2.y)/2));
+                            particles.push(new Particle('HCO3-', (p1.x+p2.x)/2, (p1.y+p2.y)/2));
                         }
                         // Neutralization: H+ + OH- -> H2O (Both disappear)
-                        if ((p1.type === 'H' && p2.type === 'OH') || (p1.type === 'OH' && p2.type === 'H')) {
+                        if ((p1.type === 'H+' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'H+')) {
                             // Only happens in capture chamber (x < CEM_X)
                             if (p1.x < CEM_X && p2.x < CEM_X) {
                                 p1.markedForDeletion = true;
@@ -312,12 +322,12 @@
                 statusBox.style.color = "#721c24";
                 statusBox.style.borderLeftColor = "#f5c6cb";
             } else if (hCross > 5) {
-                statusBox.innerHTML = "🟡 Caution: Some H+ is crossing the CEM. Increase Release Flow or NaCl to protect pH.";
+                statusBox.innerHTML = "🟡 Caution: Some H+ is crossing the CEM. Increase Release Flow or Electrolyte Conc. to protect pH.";
                 statusBox.style.background = "#fff3cd";
                 statusBox.style.color = "#856404";
                 statusBox.style.borderLeftColor = "#ffeeba";
             } else {
-                statusBox.innerHTML = "🟢 Optimal Operation: Upflow and NaCl are effectively buffering H+ crossover. HCO3- is secured.";
+                statusBox.innerHTML = "🟢 Optimal Operation: Upflow and K+/NH4+ are effectively buffering H+ crossover. HCO3- is secured.";
                 statusBox.style.background = "#d4edda";
                 statusBox.style.color = "#155724";
                 statusBox.style.borderLeftColor = "#c3e6cb";
@@ -327,9 +337,9 @@
         function drawBackground() {
             // Chambers
             ctx.fillStyle = "#ffffff";
-            ctx.fillRect(LEFT_BP_X, 0, CEM_X - LEFT_BP_X, canvas.height); // Capture Chamber
+            ctx.fillRect(LEFT_BP_X, 0, CEM_X - LEFT_BP_X, canvas.height);
             ctx.fillStyle = "#fdfdfd";
-            ctx.fillRect(CEM_X, 0, RIGHT_BP_X - CEM_X, canvas.height); // Release Chamber
+            ctx.fillRect(CEM_X, 0, RIGHT_BP_X - CEM_X, canvas.height);
 
             // Left BP
             ctx.fillStyle = "#aaa";
@@ -377,7 +387,6 @@
                 }
             }
 
-            // Cap particle limit for performance
             if (particles.length > 500) {
                 particles.splice(0, particles.length - 500);
             }

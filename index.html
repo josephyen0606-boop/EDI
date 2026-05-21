@@ -17,11 +17,11 @@
         }
         h1 {
             font-size: 24px;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
         }
         .container {
             display: flex;
-            flex-direction: column; /* Changed to column to put controls below */
+            flex-direction: column;
             align-items: center;
             gap: 20px;
             background: #fff;
@@ -29,6 +29,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             max-width: 900px;
+            width: 100%;
         }
         .canvas-section {
             display: flex;
@@ -42,47 +43,6 @@
             box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 700px;
-        }
-        .controls {
-            display: flex;
-            flex-wrap: wrap; /* Allows wrapping on smaller screens */
-            justify-content: center;
-            gap: 15px;
-            width: 100%;
-            background: #fafafa;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #ddd;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            width: calc(33% - 15px); /* 3 columns layout */
-            min-width: 200px;
-        }
-        .control-group label {
-            font-weight: bold;
-            font-size: 13px;
-            margin-bottom: 5px;
-        }
-        .control-group input {
-            width: 100%;
-        }
-        .val-display {
-            font-size: 12px;
-            color: #666;
-            float: right;
-        }
-        #status-box {
-            margin-top: 15px;
-            padding: 15px;
-            width: 100%;
-            background: #fff3cd;
-            color: #856404;
-            border-left: 5px solid #ffeeba;
-            border-radius: 4px;
-            font-weight: bold;
-            text-align: center;
         }
         .legend {
             display: flex;
@@ -100,6 +60,48 @@
         .dot {
             width: 12px; height: 12px; border-radius: 50%;
         }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 800px;
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .control-group label {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .control-group input {
+            width: 100%;
+            cursor: pointer;
+        }
+        .val-display {
+            font-size: 12px;
+            color: #007bff;
+        }
+        #status-box {
+            margin-top: 20px;
+            padding: 15px;
+            width: 100%;
+            max-width: 800px;
+            background: #fff3cd;
+            color: #856404;
+            border-left: 5px solid #ffeeba;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -107,7 +109,6 @@
     <h1>BPMED Carbon Capture Simulator</h1>
 
     <div class="container">
-        
         <div class="canvas-section">
             <canvas id="simCanvas" width="700" height="400"></canvas>
             <div class="legend">
@@ -119,7 +120,6 @@
                 <div class="legend-item"><div class="dot" style="background:#6f42c1;"></div> K+</div>
                 <div class="legend-item"><div class="dot" style="background:#fd7e14;"></div> Cl-</div>
             </div>
-            <div id="status-box">System Initialized. Adjust parameters to observe physics.</div>
         </div>
 
         <div class="controls">
@@ -140,12 +140,13 @@
                 <input type="range" id="slCO2" min="0" max="100" value="50">
             </div>
             <div class="control-group">
-                <label>Electrolyte Conc. (NH4:K = 1:6) <span class="val-display" id="valNaCl">3.0%</span></label>
+                <label>Electrolyte (NH4:K = 1:6) <span class="val-display" id="valNaCl">3.0%</span></label>
                 <input type="range" id="slNaCl" min="0" max="5" step="0.5" value="3.0">
             </div>
         </div>
-
     </div>
+
+    <div id="status-box">System Initialized. Adjust parameters to observe physics.</div>
 
     <script>
         const canvas = document.getElementById('simCanvas');
@@ -159,6 +160,7 @@
         const slNaCl = document.getElementById('slNaCl');
         const statusBox = document.getElementById('status-box');
 
+        // Update displays
         function updateLabels() {
             document.getElementById('valVolt').innerText = slVolt.value + '%';
             document.getElementById('valCapFlow').innerText = slCapFlow.value + '%';
@@ -168,14 +170,11 @@
         }
         [slVolt, slCapFlow, slRelFlow, slCO2, slNaCl].forEach(el => el.addEventListener('input', updateLabels));
 
-        // Physics constants & layout
+        // Physics variables
         let particles = [];
         const LEFT_BP_X = 100;
         const CEM_X = 350;
         const RIGHT_BP_X = 600;
-
-        // Strict Charge Balance Quota
-        window.crossover_quota = 0;
 
         class Particle {
             constructor(type, x, y) {
@@ -188,73 +187,40 @@
             }
 
             update(volt, capF, relF, nacl) {
-                // Vertical Flow (Upflow)
                 let baseUpflow = (this.x < CEM_X) ? (capF / 100) * 3 : (relF / 100) * 3;
                 
-                // Buoyancy
                 if (this.type === 'CO2') {
                     this.vy = -(baseUpflow + 1.5); 
                 } else {
-                    this.vy = -baseUpflow - 0.5;
+                    this.vy = -baseUpflow - 0.5; 
                 }
 
-                // Horizontal Electric Field Drift
                 let eForce = (volt / 100) * 2;
                 
                 if (this.type === 'OH-') this.vx = eForce * 0.5;
                 if (this.type === 'H+') this.vx = -eForce * 0.8; 
-                if (this.type === 'K+') this.vx = -eForce * 0.65;
-                if (this.type === 'NH4+') this.vx = -eForce * 0.55;
+                if (this.type === 'K+') this.vx = -eForce * 0.65; 
+                if (this.type === 'NH4+') this.vx = -eForce * 0.55; 
                 if (this.type === 'Cl-') this.vx = eForce * 0.4;
                 if (this.type === 'HCO3-') this.vx = eForce * 0.3;
                 if (this.type === 'CO2') {
                     this.vx = (Math.random() - 0.5) * 1; 
                 }
 
-                // Apply preliminary movement
-                let nextX = this.x + this.vx;
+                this.x += this.vx;
                 this.y += this.vy;
 
-                // Boundary Logic (Deletion at top)
                 if (this.y < -10) this.markedForDeletion = true;
 
-                // Middle Membrane (CEM) Strict Logic
-                if (this.x > CEM_X && nextX <= CEM_X + 2) {
-                    // Cations approaching CEM from Right to Left
-                    if (this.type === 'H+' || this.type === 'K+' || this.type === 'NH4+') {
-                        if (window.crossover_quota >= 1) {
-                            // Allowed to cross (charge balance maintained)
-                            window.crossover_quota -= 1;
-                            this.x = nextX;
-                        } else {
-                            // Blocked! Electric force is there, but no charge balance quota
-                            this.x = CEM_X + 2;
-                            this.vx = 0;
-                        }
-                    } else if (this.type === 'Cl-') {
-                        // Anions blocked completely
-                        this.x = CEM_X + 2;
-                        this.vx = 0;
-                    } else {
-                        this.x = nextX;
+                if (this.x > CEM_X - 5 && this.x < CEM_X + 5) {
+                    if (this.type === 'HCO3-' || this.type === 'Cl-' || this.type === 'OH-') {
+                        if (this.vx > 0) this.x = CEM_X - 6;
+                        if (this.vx < 0) this.x = CEM_X + 6;
                     }
-                } else if (this.x < CEM_X && nextX >= CEM_X - 2) {
-                    // Particles approaching CEM from Left to Right
-                    if (this.type === 'HCO3-' || this.type === 'OH-' || this.type === 'CO2') {
-                        // Blocked completely
-                        this.x = CEM_X - 2;
-                        this.vx = 0;
-                    } else {
-                        this.x = nextX;
-                    }
-                } else {
-                    // Normal movement if not hitting CEM
-                    this.x = nextX;
                 }
 
-                // Left & Right BP boundaries (Absolute barriers)
-                if (this.x < LEFT_BP_X + 15) this.x = LEFT_BP_X + 15;
-                if (this.x > RIGHT_BP_X - 15) this.x = RIGHT_BP_X - 15;
+                if (this.x < LEFT_BP_X + 20) this.x = LEFT_BP_X + 20;
+                if (this.x > RIGHT_BP_X - 20) this.x = RIGHT_BP_X - 20;
             }
 
             draw() {
@@ -276,10 +242,11 @@
                     ctx.fill();
                 }
 
-                // Chemical Label
+                // Chemical Label (Offset safely to the right to avoid overlap)
                 ctx.fillStyle = '#444';
-                ctx.font = '10px Arial';
-                ctx.fillText(this.type, this.x + 6, this.y + 4);
+                ctx.font = '11px Arial';
+                let xOffset = (this.type === 'CO2') ? 10 : 8;
+                ctx.fillText(this.type, this.x + xOffset, this.y + 4);
             }
         }
 
@@ -288,24 +255,18 @@
             let co2 = parseInt(slCO2.value);
             let nacl = parseFloat(slNaCl.value);
 
-            // Water Splitting (Current / Charge Generation)
-            if (Math.random() < (volt / 100) * 0.4) {
+            if (Math.random() < (volt / 100) * 0.3) {
                 particles.push(new Particle('OH-', LEFT_BP_X + 20, Math.random() * canvas.height));
+            }
+            if (Math.random() < (volt / 100) * 0.3) {
                 particles.push(new Particle('H+', RIGHT_BP_X - 20, Math.random() * canvas.height));
-                // Add to quota: 1 electron generated = 1 positive charge allowed to cross CEM
-                window.crossover_quota += 1;
             }
-            
-            // Cap the quota so it doesn't build up infinitely if flow sweeps cations away
-            window.crossover_quota = Math.min(window.crossover_quota, 5);
 
-            // CO2 Upflow
             if (Math.random() < (co2 / 100) * 0.4) {
-                particles.push(new Particle('CO2', LEFT_BP_X + 30 + Math.random() * 200, canvas.height + 10));
+                particles.push(new Particle('CO2', LEFT_BP_X + 50 + Math.random() * 150, canvas.height + 10));
             }
 
-            // Electrolyte Upflow
-            if (Math.random() < (nacl / 5) * 0.6) {
+            if (Math.random() < (nacl / 5) * 0.5) {
                 let cationType = (Math.random() < (1/7)) ? 'NH4+' : 'K+';
                 particles.push(new Particle(cationType, CEM_X + 20 + Math.random() * 200, canvas.height + 10));
                 particles.push(new Particle('Cl-', CEM_X + 20 + Math.random() * 200, canvas.height + 10));
@@ -330,13 +291,11 @@
                     let dist = Math.sqrt(dx*dx + dy*dy);
 
                     if (dist < 15) {
-                        // Reaction: CO2 + OH- -> HCO3-
                         if ((p1.type === 'CO2' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'CO2')) {
                             p1.markedForDeletion = true;
                             p2.markedForDeletion = true;
                             particles.push(new Particle('HCO3-', (p1.x+p2.x)/2, (p1.y+p2.y)/2));
                         }
-                        // Neutralization: H+ + OH- -> H2O
                         if ((p1.type === 'H+' && p2.type === 'OH-') || (p1.type === 'OH-' && p2.type === 'H+')) {
                             if (p1.x < CEM_X && p2.x < CEM_X) {
                                 p1.markedForDeletion = true;
@@ -364,7 +323,7 @@
                 statusBox.style.color = "#856404";
                 statusBox.style.borderLeftColor = "#ffeeba";
             } else {
-                statusBox.innerHTML = "🟢 Optimal Operation: Charge Balance is buffered by K+/NH4+. Upflow secures the system.";
+                statusBox.innerHTML = "🟢 Optimal Operation: Upflow and K+/NH4+ are effectively buffering H+ crossover. HCO3- is secured.";
                 statusBox.style.background = "#d4edda";
                 statusBox.style.color = "#155724";
                 statusBox.style.borderLeftColor = "#c3e6cb";
@@ -378,53 +337,40 @@
             ctx.fillStyle = "#fdfdfd";
             ctx.fillRect(CEM_X, 0, RIGHT_BP_X - CEM_X, canvas.height);
 
-            // Electrodes (Anode & Cathode)
-            ctx.fillStyle = "#e74c3c"; // Red Anode
-            ctx.fillRect(10, 0, 15, canvas.height);
-            ctx.fillStyle = "#3498db"; // Blue Cathode
-            ctx.fillRect(canvas.width - 25, 0, 15, canvas.height);
+            // Electrodes (Far Left and Far Right)
+            ctx.fillStyle = "#ced4da";
+            ctx.fillRect(0, 0, 15, canvas.height); // Cathode Base
+            ctx.fillRect(canvas.width - 15, 0, 15, canvas.height); // Anode Base
             
-            ctx.save();
-            ctx.translate(20, canvas.height/2);
-            ctx.rotate(-Math.PI/2);
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 16px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("Anode (+)", 0, 0);
-            ctx.restore();
+            ctx.fillStyle = "#495057";
+            ctx.font = "bold 14px Arial";
+            ctx.fillText("Cathode (-)", 20, 30);
+            ctx.fillText("Anode (+)", canvas.width - 90, 30);
 
-            ctx.save();
-            ctx.translate(canvas.width - 10, canvas.height/2);
-            ctx.rotate(Math.PI/2);
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 16px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("Cathode (-)", 0, 0);
-            ctx.restore();
+            // Left BP
+            ctx.fillStyle = "#adb5bd";
+            ctx.fillRect(LEFT_BP_X, 0, 15, canvas.height);
 
-            // Membranes Styling (Unified format)
-            ctx.fillStyle = "#7f8c8d"; // BP color
-            ctx.fillRect(LEFT_BP_X, 0, 10, canvas.height);
-            ctx.fillRect(RIGHT_BP_X, 0, 10, canvas.height);
-            
-            ctx.fillStyle = "#f39c12"; // CEM color
-            ctx.fillRect(CEM_X, 0, 10, canvas.height);
+            // Right BP
+            ctx.fillStyle = "#adb5bd";
+            ctx.fillRect(RIGHT_BP_X-15, 0, 15, canvas.height);
 
-            // Membrane Labels (Unified)
-            ctx.fillStyle = "#333";
-            ctx.font = "bold 18px Arial";
-            ctx.textAlign = "center";
-            
-            // Draw labels at the top
-            ctx.fillText("BP", LEFT_BP_X + 5, 25);
-            ctx.fillText("CEM", CEM_X + 5, 25);
-            ctx.fillText("BP", RIGHT_BP_X + 5, 25);
+            // CEM
+            ctx.fillStyle = "#ffc107";
+            ctx.fillRect(CEM_X - 4, 0, 8, canvas.height);
 
-            // Chamber Labels
-            ctx.fillStyle = "rgba(0,0,0,0.1)";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText("CAPTURE (Upflow)", (LEFT_BP_X + CEM_X)/2, canvas.height / 2);
-            ctx.fillText("RELEASE (Upflow)", (CEM_X + RIGHT_BP_X)/2, canvas.height / 2);
+            // Membrane Labels (Unified Font)
+            ctx.fillStyle = "#212529";
+            ctx.font = "bold 14px Arial";
+            ctx.fillText("BP", LEFT_BP_X - 4, 50);
+            ctx.fillText("CEM", CEM_X - 16, 50);
+            ctx.fillText("BP", RIGHT_BP_X - 4, 50);
+
+            // Chamber Watermark Labels
+            ctx.fillStyle = "rgba(0,0,0,0.06)";
+            ctx.font = "bold 26px Arial";
+            ctx.fillText("CAPTURE (Upflow)", LEFT_BP_X + 25, canvas.height / 2);
+            ctx.fillText("RELEASE (Upflow)", CEM_X + 25, canvas.height / 2);
         }
 
         function animate() {
